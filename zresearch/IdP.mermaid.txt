@@ -1,0 +1,42 @@
+flowchart LR
+  subgraph IDP["Identity plane"]
+    AD["On-prem AD"]
+    ENTRA["Microsoft Entra ID<br/>IdP: authenticates the user"]
+  end
+
+  subgraph DEV["User device"]
+    ZCC["Zscaler Client Connector<br/>intercepts traffic, runs posture checks,<br/>caches the SAML assertion"]
+  end
+
+  subgraph ZTE["Zscaler cloud"]
+    ZIA["ZIA<br/>internet and SaaS proxy"]
+    POL["ZPA policy engine<br/>+ SCIM user and group store"]
+    PSE["ZPA Public Service Edge<br/>broker: stitches tunnels"]
+  end
+
+  subgraph DC["Data centre or VPC"]
+    APPC["App Connector<br/>outbound-only"]
+    APP["Private app"]
+  end
+
+  INET(("Internet / SaaS"))
+
+  AD -- "Entra Connect sync" --> ENTRA
+  ENTRA -. "SCIM push: users, groups, active flag<br/>runs on a schedule, ~40 min" .-> POL
+  ENTRA -. "SCIM push" .-> ZIA
+  ZCC == "SAML sign-in at enrolment and reauth<br/>assertion = NameID + attributes" ==> ENTRA
+  ZCC -- "Z-Tunnel: internet traffic" --> ZIA
+  ZIA --> INET
+  ZCC -- "Z-Tunnel: private app traffic<br/>+ assertion + posture" --> PSE
+  PSE <-- "policy decision" --> POL
+  APPC -- "persistent outbound TLS" --> PSE
+  APPC -- "local DNS + TCP" --> APP
+
+  classDef idp fill:#e8eefc,stroke:#4a6fd1,color:#111
+  classDef dev fill:#eaf7ea,stroke:#3f8f3f,color:#111
+  classDef zs fill:#fff4e0,stroke:#d18b1f,color:#111
+  classDef dc fill:#f3e8fc,stroke:#7a3fb0,color:#111
+  class AD,ENTRA idp
+  class ZCC dev
+  class ZIA,POL,PSE zs
+  class APPC,APP dc
