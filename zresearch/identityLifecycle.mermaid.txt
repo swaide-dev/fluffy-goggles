@@ -1,0 +1,42 @@
+sequenceDiagram
+  autonumber
+  participant E as Entra ID (IdP)
+  participant C as ZCC on device
+  participant ZIA as ZIA (if licensed)
+  participant P as ZPA cloud (Service Edge + policy)
+  participant AC as App Connector
+  participant A as Private app
+
+  rect rgb(232,238,252)
+  Note over E,P: Phase 0 - Provisioning, out of band, before the user ever logs in
+  E->>P: SCIM create/update Users and Groups (only those assigned to the ZPA enterprise app)
+  Note right of P: SCIM store holds userName, active flag, group memberships
+  end
+
+  rect rgb(234,247,234)
+  Note over E,P: Phase 1 - Authentication at ZCC enrolment
+  C->>ZIA: User enters UPN, ZCC finds the tenant
+  ZIA->>E: SAML AuthnRequest (browser window in ZCC, MFA and Conditional Access apply here)
+  E-->>ZIA: Signed SAML assertion, ZIA session issued
+  C->>P: Enrol for ZPA
+  P->>E: SAML AuthnRequest (usually silent - IdP session already exists)
+  E-->>C: Signed SAML assertion: NameID + attributes, cached encrypted on the device
+  P->>P: Join SAML NameID to SCIM userName
+  end
+
+  rect rgb(255,244,224)
+  Note over C,A: Phase 2 - Authorisation, on every new connection
+  C->>C: Destination matches an application segment, so intercept
+  C->>P: Connection request + SAML assertion + posture results
+  P->>P: Access policy, top-down first match, default deny. Criteria: SAML attributes (snapshot) + SCIM groups (current) + posture + client type
+  P->>AC: Ask connectors in the allowed group to resolve and health-check the app
+  AC->>A: DNS + TCP connect, source IP is the connector
+  P-->>C: Tunnels stitched: ZCC to Service Edge to Connector
+  end
+
+  rect rgb(252,232,232)
+  Note over E,P: Phase 3 - Change and revocation
+  E->>P: SCIM membership change or active=false (next provisioning cycle)
+  Note right of P: New connections are evaluated against the new SCIM state
+  Note right of C: SAML attributes stay as they were until the timeout policy forces reauth and a fresh assertion
+  end
