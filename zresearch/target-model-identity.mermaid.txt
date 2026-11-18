@@ -1,0 +1,19 @@
+flowchart LR
+  ENTRA["Microsoft Entra ID<br/>authenticates the user"]
+  AS["Authentication Service<br/>users, groups, attributes,<br/>service entitlements, auth levels"]
+  ZCC["ZCC on device"]
+  ZPA["ZPA access policy<br/>per-app decision"]
+  ZIA["ZIA policy"]
+
+  ZCC == "one sign-in, enrols ZIA + ZPA + ZDX" ==> AS
+  AS -- "OIDC (recommended) or SAML" --> ENTRA
+  ENTRA -. "SCIM: users and groups" .-> AS
+  AS -- "identity, user and session attributes,<br/>authentication level" --> ZPA
+  AS -- "identity and attributes" --> ZIA
+
+  classDef idp fill:#e8eefc,stroke:#4a6fd1,color:#111
+  classDef dev fill:#eaf7ea,stroke:#3f8f3f,color:#111
+  classDef zs fill:#fff4e0,stroke:#d18b1f,color:#111
+  class ENTRA idp
+  class ZCC dev
+  class AS,ZPA,ZIA zs
